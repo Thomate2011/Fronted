@@ -42,6 +42,7 @@
             border-radius: 5px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
             color: white;
+            margin: 5px;
         }
         
         #player-input-area, #roles-selection-area, #card-reveal-area, #gamemaster-area {
@@ -130,6 +131,12 @@
             text-decoration: line-through;
             color: #888;
         }
+
+        .error-message {
+            color: red;
+            font-weight: bold;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -185,7 +192,7 @@
         <div id="player-list" style="margin: 20px auto; width: 80%;"></div>
         
         <button onclick="restartGame()" style="background-color: #f44336; margin-top: 20px;">Neustart</button>
-        <button onclick="window.location.href = 'index.html'" style="background-color: #4CAF50; margin-top: 20px;">Zur Startseite</button>
+        <button onclick="resetAllAndNavigateToWelcome()" style="background-color: #4CAF50; margin-top: 20px;">Zur Startseite</button>
     </div>
 
 </div>
@@ -208,9 +215,7 @@
         document.getElementById(areaId).style.display = 'block';
 
         if (areaId === 'player-input-area') {
-            const response = await fetch('/api/game/get_players');
-            const data = await response.json();
-            document.getElementById('player-names-textarea').value = data.players_string;
+            await fetchAndSetPlayers();
         } else if (areaId === 'roles-selection-area') {
             await fetchRolesData();
         } else if (areaId === 'card-reveal-area') {
@@ -218,6 +223,12 @@
         } else if (areaId === 'gamemaster-area') {
             await fetchGamemasterView();
         }
+    }
+
+    async function fetchAndSetPlayers() {
+        const response = await fetch('/api/game/get_players');
+        const data = await response.json();
+        document.getElementById('player-names-textarea').value = data.players_string;
     }
 
     async function showPlayerInput() {
@@ -276,7 +287,7 @@
         const totalRolesSelected = Object.values(rolesCount).reduce((a, b) => a + b, 0);
         const remainingRoles = totalPlayers - totalRolesSelected;
         document.getElementById("roles-to-go").textContent = remainingRoles;
-        if (remainingRoles === 0) {
+        if (remainingRoles === 0 && totalPlayers > 0) {
             document.getElementById("start-button-top").style.display = 'inline-block';
             document.getElementById("start-button-bottom").style.display = 'inline-block';
         } else {
@@ -437,7 +448,16 @@
         navigateTo('roles-selection-area');
     }
 
-    // Initial load
+    async function resetAllAndNavigateToWelcome() {
+        const response = await fetch('/api/game/reset_all', { method: 'POST' });
+        const result = await response.json();
+        if (response.ok) {
+            navigateTo('welcome-area');
+        } else {
+            alert(result.message);
+        }
+    }
+
     document.getElementById('reveal-role-btn').addEventListener('click', revealCard);
     document.getElementById('show-description-btn').addEventListener('click', showDescription);
     document.getElementById('next-player-btn').addEventListener('click', nextPlayer);
