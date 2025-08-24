@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Werwolf Spiel</title>
+    <title>Werwolf-Spiel</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -16,7 +16,7 @@
             max-width: 600px;
             margin: 50px auto;
             padding: 20px;
-            background: white;
+            background-color: white;
             border: 1px solid #ccc;
             border-radius: 10px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
@@ -24,88 +24,45 @@
         h1 {
             color: #4CAF50;
         }
-        .button {
+        .start-button, .action-button, .back-button {
             font-size: 1.2em;
             padding: 10px 20px;
             cursor: pointer;
+            color: white;
             border: none;
             border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
             text-decoration: none;
             display: inline-block;
-            margin-top: 15px;
         }
-        .button.primary {
+        .start-button {
+            background-color: #4CAF50;
+        }
+        .action-button {
+            background-color: #008CBA;
+        }
+        .back-button {
+            background-color: #f44336;
+        }
+        .info-button {
+            font-size: 1em;
+            margin-left: 10px;
+            padding: 0 5px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 1px solid #008CBA;
             background-color: #008CBA;
             color: white;
-        }
-        .button.success {
-            background-color: #4CAF50;
-            color: white;
-        }
-        .button.danger {
-            background-color: #f44336;
-            color: white;
-        }
-        .button.info {
-            background-color: #2196F3;
-            color: white;
-            font-size: 1em;
-            padding: 8px 15px;
-        }
-        .button-group {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        #names-form textarea {
-            width: 80%;
-            padding: 10px;
-            font-size: 1em;
-            height: 200px;
-            resize: none;
-        }
-        .roles-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-            padding: 5px 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-        .roles-item-controls {
-            display: flex;
-            align-items: center;
-        }
-        .roles-item-controls button {
-            font-size: 1.2em;
-            padding: 5px 10px;
             cursor: pointer;
-            border: 1px solid #ccc;
-            border-radius: 3px;
-            background-color: #f9f9f9;
-        }
-        .player-card {
-            min-height: 200px;
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 20px;
-            border: 2px dashed #008CBA;
-            border-radius: 10px;
         }
-        .player-card .role-name {
-            font-size: 1.5em;
-            font-weight: bold;
+        #roles-to-go.negative {
             color: #f44336;
         }
-        .player-card .role-description {
-            font-size: 1em;
-            color: #555;
-        }
-        .popup {
+        .info-popup {
             display: none;
             position: fixed;
             top: 50%;
@@ -127,395 +84,301 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0,0,0,0.5);
             z-index: 999;
         }
-        .close-button {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: none;
-            border: none;
-            font-size: 2em;
-            cursor: pointer;
+        .hidden {
+            display: none !important;
         }
-        #player-list div {
+        textarea {
+            width: 80%;
+            padding: 10px;
+            font-size: 1em;
+        }
+        .roles-list-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
-            cursor: pointer;
-            text-align: left;
-        }
-        .player-list-dead {
-            text-decoration: line-through;
-            color: #888;
+            margin-bottom: 10px;
+            padding: 5px 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
         }
     </style>
 </head>
 <body>
 
-    <div id="content"></div>
+    <div id="start-page" class="container">
+        <h1>Willkommen bei dem Werwolf-Spiel von Thomas.</h1>
+        <p>Hier kannst du einfach die Rollen für dein Werwolf-Spiel verteilen und sie dir erklären lassen.</p>
+        <hr>
+        <button id="start-button" class="start-button">Zum Spiel</button>
+    </div>
+
+    <div id="players-page" class="container hidden">
+        <h1>Namen eingeben</h1>
+        <p>Gib die Namen der Spieler ein (jeder Name in einer neuen Zeile).</p>
+        <textarea id="players-textarea" rows="10" cols="40"></textarea><br><br>
+        <button id="to-roles-button" class="action-button">Zu den Rollen</button>
+    </div>
+
+    <div id="roles-page" class="container hidden">
+        <h1>Rollen auswählen</h1>
+        <p>Wähle genau die Anzahl der Spieler aus.</p>
+        <p>Noch zu vergeben: <span id="roles-to-go"></span></p>
+
+        <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 20px;">
+            <button id="back-to-players" class="back-button">Zurück</button>
+            <button id="start-game-button" class="start-button hidden">Mischen</button>
+        </div>
+
+        <div id="roles-list"></div>
+    </div>
+
+    <div id="cards-page" class="container hidden">
+        <h1>Rollen aufdecken</h1>
+        <div id="player-card">
+            <h2 id="player-name"></h2>
+            <p id="role-name" class="hidden"></p>
+            <p id="role-description" class="hidden"></p>
+            <button id="reveal-role-btn" class="action-button">Rolle aufdecken</button>
+            <button id="show-description-btn" class="action-button hidden">Erklärung</button>
+            <button id="next-player-btn" class="start-button hidden">Nächster Spieler</button>
+        </div>
+    </div>
+
+    <div id="neustart-page" class="container hidden">
+        <h1>Spielübersicht</h1>
+        <p>Tippe auf den Namen, um einen ausgeschiedenen Spieler zu entfernen.</p>
+        <div id="player-list" style="text-align: left; margin: 20px auto; width: 80%;"></div>
+        <button id="restart-game-btn" class="back-button">Neustart</button>
+        <button id="start-page-btn" class="start-button">Zur Startseite</button>
+    </div>
+
+    <div id="info-popup" class="info-popup">
+        <h2 id="popup-role-name"></h2>
+        <p id="popup-role-description"></p>
+        <button onclick="hideInfo()" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 1.5em; cursor: pointer;">&times;</button>
+    </div>
+    <div id="overlay" class="overlay" onclick="hideInfo()"></div>
 
     <script>
-        // Konfiguriere die URL deines Backend-Servers auf Render
-        const BACKEND_URL = 'https://werwolf-game.onrender.com';
+        // API-URL
+        const API_BASE_URL = window.location.origin.replace("werwolf-fronted", "werwolf-game");
 
-        const ALL_ROLES_DESCRIPTIONS = {
-            "Dorfbewohner": "Der normale Dorfbewohner hat keine Sonderfähigkeit.",
-            "Werwölfe": "Die Werwölfe werden nachts vom Spielleiter aufgerufen, erkennen sich und einigen sich auf ein Opfer, welches „gefressen“ wird und somit aus dem Spiel ist.",
-            "Hexe": "Die Hexe erwacht, nachdem die Werwölfe ihr Opfer ausgesucht haben. Sie hat im Verlauf des gesamten Spiels einen Gift- und einen Heiltrank. Der Spielleiter zeigt der Hexe das Opfer und die Hexe kann es mit ihrem Heiltrank heilen (auch sich selbst), so dass es überlebt. Sie kann aber auch den Gifttrank auf einen anderen Spieler anwenden. Dadurch kann es in einer Nacht keine, einen oder zwei Tote geben.",
-            "Jäger": "Scheidet der Jäger aus dem Spiel aus, feuert er in seinem letzten Lebensmoment noch einen Schuss ab, mit dem er einen Spieler seiner Wahl mit in den Tod reißt.",
-            "Amor": "Amor erwacht nur einmal in der allerersten Nacht, um zwei Spieler seiner Wahl miteinander zu verkuppeln (eventuell auch sich selbst). Danach schläft er wieder ein.",
-            "Dieb": "Der Dieb kann in der ersten Runde seine Karte mit der eines anderen tauschen.",
-            "Kleines Mädchen": "Das kleine Mädchen darf nachts in der Werwolf-Phase heimlich blinzeln, um so die Werwölfe zu erkennen.",
-            "Seherin": "Die Seherin erwacht, während alle anderen schlafen, und darf sich eine Person aussuchen, deren Rolle sie sehen möchte.",
-            "Heiler/Beschützer": "Der Heiler erwacht am Anfang jeder Nacht und bestimmt einen Spieler (auch sich selbst), den er vor den Werwölfen beschützen will. Selbst wenn der ausgewählte Spieler von den Werwölfen gebissen wird, stirbt er nicht. Es ist nicht erlaubt, zwei Runden hintereinander denselben Charakter zu schützen, da dieser sonst unsterblich wäre.",
-            "Sündenbock": "Immer wenn es im Dorf zu einer Pattsituation zwischen dem Sündenbock und einer Person während der Abstimmung kommt, trifft es sofort den Sündenbock. Er opfert sich für das Dorf und scheidet aus dem Spiel aus.",
-            "Dorfdepp": "Wird der Dorfdepp vom Dorfgericht zum Opfer gewählt, erkennen sie im letzten Moment, dass es sich nur um den Dorfdeppen handelt. Der Dorfdepp bleibt im Spiel, verliert jedoch sein Abstimmungsrecht.",
-            "Der Alte": "Der Alte überlebt den ersten Angriff der Werwölfe. Wird er aber vom Dorfgericht zum Opfer bestimmt, durch die Hexe oder den Jäger umgebracht stirbt er.",
-            "Flötenspieler": "Der Flötenspieler ist eine eigene Partei und kann nur alleine das Spiel gewinnen, außer er ist verliebt. In diesem Fall gewinnt er, wenn nur noch er und die geliebte Person im Spiel sind. Er erwacht immer am Ende jeder Nacht und bestimmt zwei Spieler, die er mit seiner Musik verzaubert. Der Flötenspieler gewinnt das Spiel alleine, wenn alle anderen Spieler verzaubert sind.",
-            "Der große böse Werwolf": "Der große böse Wolf ist ein Wolf, der in jeder zweiten Nacht zweimal tötet. Er einigt sich zunächst mit den anderen Wölfen auf ein Opfer, dann wählt er sich allein ein zweites Opfer.",
-            "Der Urwolf": "Er ist ein Werwolf, der einmalig einen Spieler statt zu fressen in einen Werwolf verwandeln kann. Er signalisiert dem Spielleiter heimlich, nach der Entscheidung aller Werwölfe, wenn eine Umwandlung stattfinden soll.",
-            "Der weiße Werwolf": "Der weiße Werwolf wacht jede Runde zusammen mit den anderen Werwölfen auf und verhält sich normal. Zusätzlich wacht er aber jede zweite Runde erneut gesondert auf und kann, wenn er möchte, einen der anderen Werwölfe töten. Sein Ziel ist es, als einziger zu überleben.",
-            "Der Wolfshund": "Wenn er vom Spielleiter aufgerufen wird, kann er entscheiden, ob er zum Werwolf werden oder Dorfbewohner bleiben möchte.",
-            "Das wilde Kind": "Das wilde Kind wählt am Anfang des Spiels einen anderen Spieler, der ab dann sein Vorbild wird. Stirbt sein Vorbild, wird das wilde Kind zum Werwolf.",
-            "Die reine Seele": "Du wirst noch am Tag aufgerufen und jeder weiß, dass du ein Dorfbewohner bist.",
-            "Der Engel": "Wenn er in der Abstimmung der ersten Runde eliminiert wird (nicht von den Werwölfen), gewinnt er das Spiel allein.",
-            "Die drei Brüder": "Die drei Brüder erwachen zusammen in der ersten Nacht und erkennen sich. Ansonsten sind sie einfache Dorfbewohner.",
-            "Die zwei Schwestern": "Die zwei Schwestern erwachen zusammen in der ersten Nacht und erkennen sich. Ansonsten sind sie einfache Dorfbewohner.",
-            "Der Fuchs": "Wenn er in der Nacht aufgerufen wird, wählt er einen Spieler aus und erfährt vom Spielleiter, ob dieser oder einer seiner beiden Nachbarn ein Werwolf ist oder nicht. Ist bei dem Trio mindestens ein Werwolf dabei, darf er es in der nächsten Nacht ein weiteres Mal versuchen. Ist aber keiner der drei ein Werwolf, verliert er seine Fähigkeit.",
-            "Die ergebene Magd": "Wenn jemand stirbt kann die ergebene Magd bevor erfahren wird welche Rolle die tote Person hat ihre Rolle mit der, der toten Person tauschen und ihre Rolle weiterspielen.",
-            "Der Bärenführer": "Wenn sich der Bärenführer am Morgen in seiner Sitzposition unmittelbar neben einem Werwolf befindet (ausgeschiedene Spieler werden ignoriert), zeigt der Spielleiter dies durch ein Bärenknurren. Ist der Bärenführer vom Urwolf infiziert, knurrt der Spielleiter jeden Morgen.",
-            "Der Ritter mit der verrosteten Klinge": "Der Ritter infiziert mit seinem rostigen Schwert den Werwolf zu seiner Linken mit Tetanus, wenn er von ihnen in der Nacht gefressen wird. Dieser Werwolf stirbt dann in der folgenden Nacht.",
-            "Der verbitterte Greis": "Zu Beginn teilt der Spielleiter anhand eines offensichtlich einsehbaren, binären Kriteriums das Dorf in zwei Gruppen (z. B. Brille/keine Brille, Bart/kein Bart, größer als 170 cm/kleiner als 170 cm, Geschlecht) – der Greis gehört dann zu einer der beiden Gruppen. Sein Ziel, um das Spiel alleine zu gewinnen, ist es die andere Gruppe komplett zu beseitigen.",
-            "Der Gaukler": "Der Spielleiter wählt vor dem Start drei zusätzliche Rollen aus, die er offen in die Mitte legt. Zu Beginn jeder Nacht wählt sich der Schauspieler eine dieser Rollen aus und spielt sie bis zur folgenden Nacht.",
-            "Der stotternde Richter": "Der Spielleiter und der Richter einigen sich in der ersten Nacht auf ein Zeichen. Wenn der Richter nach der regulären Abstimmung des Dorfes und dem Tod eines Spielers dieses Zeichen gibt, führt der Spielleiter sofort noch eine Abstimmung ohne erneute Diskussion durch.",
-            "Der Obdachlose": "Wenn du aufgerufen wirst, wählst du eine Person bei der du übernachten willst. Wenn diese Person in der Nacht von den Werwölfen getötet wird, stirbst du auch. Wenn die Werwölfe dich in der Nacht töten wollen, stirbst du nicht, weil du bei der anderen Person schläfst."
-        };
+        // Zustand
+        let allPlayers = [];
+        let allRolesData = {};
+        let selectedRoles = {};
+        let currentPlayerIndex = 0;
 
-        const contentDiv = document.getElementById('content');
-
-        // Funktion zum Laden der Seiten basierend auf dem 'hash' in der URL
-        window.addEventListener('hashchange', renderPage);
-        window.addEventListener('DOMContentLoaded', renderPage);
-
-        function renderPage() {
-            const path = window.location.hash.slice(1) || 'start';
-            switch(path) {
-                case 'start':
-                    renderStartPage();
-                    break;
-                case 'spiel':
-                    renderSpielPage();
-                    break;
-                case 'rollen':
-                    renderRollenPage();
-                    break;
-                case 'karten':
-                    renderKartenPage();
-                    break;
-                case 'neustart':
-                    renderNeustartPage();
-                    break;
-                default:
-                    renderStartPage();
-            }
+        // --- Seiten-Navigation ---
+        function showPage(pageId) {
+            document.querySelectorAll('.container').forEach(page => page.classList.add('hidden'));
+            document.getElementById(pageId).classList.remove('hidden');
         }
 
-        // Startseite
-        function renderStartPage() {
-            contentDiv.innerHTML = `
-                <div class="container">
-                    <h1>Willkommen bei dem Werwolf-Spiel von Thomas.</h1>
-                    <p>Hier kannst du einfach die Rollen für dein Werwolf-Spiel verteilen und sie dir erklären lassen.</p>
-                    <a href="#spiel" class="button">Zum Spiel</a>
-                </div>
-            `;
-        }
+        // --- Startseite Logik ---
+        document.getElementById('start-button').addEventListener('click', async () => {
+            // Beim Start wird das Spiel im Backend zurückgesetzt
+            await fetch(API_BASE_URL + '/api/game/restart', { method: 'POST' });
+            showPage('players-page');
+            document.getElementById('players-textarea').value = '';
+        });
 
-        // Spielernamen-Seite
-        function renderSpielPage() {
-            const savedPlayers = localStorage.getItem('saved_players') || '';
-            contentDiv.innerHTML = `
-                <div class="container">
-                    <h1>Namen eingeben</h1>
-                    <p>Gib die Namen der Spieler ein (jeder Name in einer neuen Zeile).</p>
-                    <form id="names-form">
-                        <textarea id="namen" rows="10" cols="40">${savedPlayers}</textarea><br><br>
-                        <button type="submit" class="button primary">Zu den Rollen</button>
-                    </form>
-                </div>
-            `;
-            document.getElementById('names-form').addEventListener('submit', (e) => {
-                e.preventDefault();
-                const names = document.getElementById('namen').value;
-                localStorage.setItem('saved_players', names);
-                window.location.hash = 'rollen';
-            });
-        }
+        // --- Spieler-Seite Logik ---
+        document.getElementById('to-roles-button').addEventListener('click', async () => {
+            const playersString = document.getElementById('players-textarea').value;
+            const players = playersString.split('\n').filter(name => name.trim() !== '');
 
-        // Rollenauswahl-Seite
-        async function renderRollenPage() {
-            const totalPlayers = (localStorage.getItem('saved_players') || '').split('\n').filter(name => name.trim()).length;
-            const savedRoles = JSON.parse(localStorage.getItem('saved_roles') || '{}');
-            let rolesCount = savedRoles;
-
-            if (totalPlayers === 0) {
-                window.location.hash = 'spiel';
+            if (players.length < 4) {
+                alert("Es müssen mindestens 4 Spieler angemeldet sein.");
                 return;
             }
 
-            contentDiv.innerHTML = `
-                <div class="container">
-                    <h1>Rollen auswählen</h1>
-                    <p>Wähle genau <span id="player-count">${totalPlayers}</span> Rollen aus.</p>
-                    <p>Noch zu vergeben: <span id="roles-to-go"></span></p>
-                    <div class="button-group">
-                        <a href="#spiel" class="button danger">Zurück</a>
-                        <button id="start-game-btn" class="button success" style="display: none;">Mischen</button>
-                    </div>
-                    <div id="roles-list"></div>
-                </div>
-                <div id="info-popup" class="popup" style="display: none;">
-                    <h2 id="popup-role-name"></h2>
-                    <p id="popup-role-description"></p>
-                    <button onclick="hideInfo()" class="close-button">&times;</button>
-                </div>
-                <div id="overlay" class="overlay" onclick="hideInfo()" style="display: none;"></div>
-            `;
-            
-            const rolesToGoElement = document.getElementById("roles-to-go");
-            const rolesListElement = document.getElementById("roles-list");
-            const startButton = document.getElementById("start-game-btn");
-
-            function updateRolesToGo() {
-                const totalRolesSelected = Object.values(rolesCount).reduce((a, b) => a + b, 0);
-                const remainingRoles = totalPlayers - totalRolesSelected;
-                rolesToGoElement.textContent = remainingRoles;
-                startButton.style.display = remainingRoles === 0 ? 'inline-block' : 'none';
-            }
-
-            window.incrementRole = (role) => {
-                if (!rolesCount[role]) rolesCount[role] = 0;
-                if (Object.values(rolesCount).reduce((a, b) => a + b, 0) < totalPlayers) {
-                    rolesCount[role]++;
-                    document.getElementById(role + '-count').textContent = rolesCount[role];
-                    updateRolesToGo();
-                    saveRoles();
-                }
-            };
-
-            window.decrementRole = (role) => {
-                if (rolesCount[role] > 0) {
-                    rolesCount[role]--;
-                    document.getElementById(role + '-count').textContent = rolesCount[role];
-                    updateRolesToGo();
-                    saveRoles();
-                }
-            };
-            
-            window.showInfo = (role) => {
-                document.getElementById('popup-role-name').textContent = role;
-                document.getElementById('popup-role-description').textContent = ALL_ROLES_DESCRIPTIONS[role];
-                document.getElementById('info-popup').style.display = 'block';
-                document.getElementById('overlay').style.display = 'block';
-            };
-
-            window.hideInfo = () => {
-                document.getElementById('info-popup').style.display = 'none';
-                document.getElementById('overlay').style.display = 'none';
-            };
-
-            function saveRoles() {
-                localStorage.setItem('saved_roles', JSON.stringify(rolesCount));
-                fetch(`${BACKEND_URL}/api/game/save_roles`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ role_counts: rolesCount })
-                });
-            }
-            
-            startButton.addEventListener('click', async () => {
-                const response = await fetch(`${BACKEND_URL}/api/game/roles`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ role_counts: rolesCount })
-                });
-                const result = await response.json();
-                if (response.ok) {
-                    window.location.hash = 'karten';
-                } else {
-                    alert(result.error);
-                }
+            await fetch(API_BASE_URL + '/api/game/save_players', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ players: playersString })
             });
+            showPage('roles-page');
+            loadRolesPage();
+        });
 
-            for (const role in ALL_ROLES_DESCRIPTIONS) {
-                const count = rolesCount[role] || 0;
-                const roleHtml = `
-                    <div class="roles-item">
-                        <span>${role}</span>
-                        <div class="roles-item-controls">
-                            <button onclick="decrementRole('${role}')">-</button>
-                            <span id="${role}-count">${count}</span>
-                            <button onclick="incrementRole('${role}')">+</button>
-                        </div>
+        // --- Rollen-Seite Logik ---
+        async function loadRolesPage() {
+            const rolesListDiv = document.getElementById('roles-list');
+            rolesListDiv.innerHTML = '';
+            
+            const [playersResponse, rolesResponse] = await Promise.all([
+                fetch(API_BASE_URL + '/api/game/players'),
+                fetch(API_BASE_URL + '/api/game/roles')
+            ]);
+            
+            const playersData = await playersResponse.json();
+            const rolesData = await rolesResponse.json();
+            
+            allPlayers = playersData.players;
+            allRolesData = rolesData.all_roles;
+            selectedRoles = rolesData.saved_roles;
+            
+            allRolesData.forEach(role => {
+                const count = selectedRoles[role] || 0;
+                const roleItem = document.createElement('div');
+                roleItem.className = 'roles-list-item';
+                roleItem.innerHTML = `
+                    <div style="display: flex; align-items: center;">
+                        <span style="font-size: 1.1em; color: #333;">${role}</span>
+                        <button class="info-button" onclick="showInfo('${role}')">i</button>
+                    </div>
+                    <div>
+                        <button onclick="decrementRole('${role}')" style="font-size: 1.2em; padding: 5px 10px; cursor: pointer;">-</button>
+                        <span id="${role}-count" style="font-size: 1.2em; margin: 0 10px;">${count}</span>
+                        <button onclick="incrementRole('${role}')" style="font-size: 1.2em; padding: 5px 10px; cursor: pointer;">+</button>
                     </div>
                 `;
-                rolesListElement.innerHTML += roleHtml;
-            }
+                rolesListDiv.appendChild(roleItem);
+            });
             updateRolesToGo();
         }
 
-        // Karten-Seite
-        async function renderKartenPage() {
-            contentDiv.innerHTML = `
-                <div class="container">
-                    <h1>Rollen aufdecken</h1>
-                    <div id="player-card" class="player-card">
-                        <h2 id="player-name"></h2>
-                        <p id="role-name" class="role-name" style="display: none;"></p>
-                        <p id="role-description" class="role-description" style="display: none;"></p>
-                        <button id="reveal-role-btn" class="button primary">Rolle aufdecken</button>
-                        <button id="show-description-btn" class="button info" style="display: none;">Erklärung</button>
-                        <button id="next-player-btn" class="button success" style="display: none;">Nächster Spieler</button>
-                    </div>
-                </div>
-            `;
+        function updateRolesToGo() {
+            const totalRolesSelected = Object.values(selectedRoles).reduce((a, b) => a + b, 0);
+            const remainingRoles = allPlayers.length - totalRolesSelected;
+            const rolesToGoSpan = document.getElementById("roles-to-go");
             
-            const playerNameElement = document.getElementById('player-name');
-            const roleNameElement = document.getElementById('role-name');
-            const roleDescElement = document.getElementById('role-description');
-            const revealBtn = document.getElementById('reveal-role-btn');
-            const showDescBtn = document.getElementById('show-description-btn');
-            const nextBtn = document.getElementById('next-player-btn');
-            let currentRoleData = null;
-
-            async function fetchNextPlayer() {
-                const response = await fetch(`${BACKEND_URL}/api/game/next_card`);
-                const data = await response.json();
-                if (response.ok) {
-                    if (data.message) {
-                        window.location.hash = 'neustart';
-                    } else {
-                        playerNameElement.textContent = data.player_name;
-                        revealBtn.style.display = 'inline-block';
-                        roleNameElement.style.display = 'none';
-                        showDescBtn.style.display = 'none';
-                        nextBtn.style.display = 'none';
-                        roleDescElement.style.display = 'none';
-                    }
-                }
+            rolesToGoSpan.textContent = remainingRoles;
+            rolesToGoSpan.classList.toggle('negative', remainingRoles < 0);
+            
+            const startButton = document.getElementById('start-game-button');
+            if (remainingRoles === 0) {
+                startButton.classList.remove('hidden');
+            } else {
+                startButton.classList.add('hidden');
             }
-
-            revealBtn.addEventListener('click', async () => {
-                const response = await fetch(`${BACKEND_URL}/api/game/reveal_and_next`, { method: 'POST' });
-                const data = await response.json();
-                if (response.ok) {
-                    currentRoleData = data;
-                    roleNameElement.textContent = data.role_name;
-                    roleNameElement.style.display = 'block';
-                    revealBtn.style.display = 'none';
-                    showDescBtn.style.display = 'inline-block';
-                    nextBtn.style.display = 'inline-block';
-                } else {
-                    alert(data.error);
-                }
-            });
-
-            showDescBtn.addEventListener('click', () => {
-                if (currentRoleData) {
-                    roleDescElement.textContent = currentRoleData.role_description;
-                    roleDescElement.style.display = 'block';
-                    showDescBtn.style.display = 'none';
-                }
-            });
-
-            nextBtn.addEventListener('click', () => {
-                fetchNextPlayer();
-            });
-
-            fetchNextPlayer();
         }
 
-        // Neustart-Seite
-        async function renderNeustartPage() {
-            contentDiv.innerHTML = `
-                <div class="container">
-                    <h1>Spielübersicht</h1>
-                    <p>Tippe auf den Namen, um einen ausgeschiedenen Spieler zu markieren.</p>
-                    <div id="player-list"></div>
-                    <div class="button-group">
-                        <button id="restart-game-btn" class="button danger">Neustart</button>
-                        <a href="#start" class="button success">Zur Startseite</a>
-                    </div>
-                </div>
-                <div id="info-popup-neustart" class="popup" style="display: none;">
-                    <p id="popup-role-name-neustart"></p>
-                    <p id="popup-role-description-neustart"></p>
-                    <button onclick="hideInfoNeustart()" class="close-button">&times;</button>
-                </div>
-                <div id="overlay-neustart" class="overlay" onclick="hideInfoNeustart()" style="display: none;"></div>
-            `;
-            
-            const playerListElement = document.getElementById('player-list');
-            const restartBtn = document.getElementById('restart-game-btn');
-
-            async function loadGamemasterView() {
-                const response = await fetch(`${BACKEND_URL}/api/gamemaster/view`);
-                const players = await response.json();
-                if (response.ok) {
-                    playerListElement.innerHTML = '';
-                    players.forEach(player => {
-                        const playerItem = document.createElement('div');
-                        const isDead = player.status === 'dead';
-                        playerItem.className = isDead ? 'player-list-dead' : '';
-                        playerItem.innerHTML = `
-                            <span onclick="killPlayer('${player.name}')">
-                                <span style="font-weight: bold;">${player.role}</span> | ${player.name}
-                            </span>
-                            <button onclick="showInfoNeustart('${player.role}')" class="button info">i</button>
-                        `;
-                        playerListElement.appendChild(playerItem);
-                    });
-                }
+        function incrementRole(role) {
+            if (!selectedRoles[role]) {
+                selectedRoles[role] = 0;
             }
-            
-            window.killPlayer = async (playerName) => {
-                const confirmKill = confirm(`Spieler '${playerName}' als 'tot' markieren?`);
-                if (confirmKill) {
-                    const response = await fetch(`${BACKEND_URL}/api/gamemaster/kill/${playerName}`, { method: 'PUT' });
-                    if (response.ok) {
-                        loadGamemasterView();
-                    } else {
-                        alert('Fehler beim Markieren des Spielers.');
-                    }
-                }
-            };
-            
-            restartBtn.addEventListener('click', async () => {
-                const response = await fetch(`${BACKEND_URL}/api/game/restart`, { method: 'POST' });
-                const result = await response.json();
-                alert(result.message);
-                localStorage.removeItem('saved_players');
-                localStorage.removeItem('saved_roles');
-                window.location.hash = 'spiel';
-            });
-            
-            window.showInfoNeustart = (role) => {
-                document.getElementById('popup-role-name-neustart').textContent = role;
-                document.getElementById('popup-role-description-neustart').textContent = ALL_ROLES_DESCRIPTIONS[role];
-                document.getElementById('info-popup-neustart').style.display = 'block';
-                document.getElementById('overlay-neustart').style.display = 'block';
-            };
-            
-            window.hideInfoNeustart = () => {
-                document.getElementById('info-popup-neustart').style.display = 'none';
-                document.getElementById('overlay-neustart').style.display = 'none';
-            };
+            selectedRoles[role]++;
+            document.getElementById(role + '-count').textContent = selectedRoles[role];
+            updateRolesToGo();
+            saveRoles();
+        }
 
-            loadGamemasterView();
+        function decrementRole(role) {
+            if (selectedRoles[role] > 0) {
+                selectedRoles[role]--;
+                document.getElementById(role + '-count').textContent = selectedRoles[role];
+                updateRolesToGo();
+                saveRoles();
+            }
+        }
+        
+        async function saveRoles() {
+            await fetch(API_BASE_URL + '/api/game/save_roles', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role_counts: selectedRoles })
+            });
+        }
+
+        document.getElementById('back-to-players').addEventListener('click', () => {
+            showPage('players-page');
+            // Stelle die Spielernamen wieder her
+            fetch(API_BASE_URL + '/api/game/players')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('players-textarea').value = data.players.join('\n');
+                });
+        });
+
+        document.getElementById('start-game-button').addEventListener('click', async () => {
+            const response = await fetch(API_BASE_URL + '/api/game/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role_counts: selectedRoles })
+            });
+            const result = await response.json();
+            if (response.ok) {
+                showPage('cards-page');
+                loadCardPage();
+            } else {
+                alert(result.error);
+            }
+        });
+
+        // --- Karten-Seite Logik ---
+        async function loadCardPage() {
+            const response = await fetch(API_BASE_URL + '/api/game/next_card');
+            const data = await response.json();
+            
+            if (data.message) {
+                showPage('neustart-page');
+            } else {
+                document.getElementById('player-name').textContent = data.player_name;
+                document.getElementById('reveal-role-btn').classList.remove('hidden');
+                document.getElementById('role-name').classList.add('hidden');
+                document.getElementById('role-description').classList.add('hidden');
+                document.getElementById('show-description-btn').classList.add('hidden');
+                document.getElementById('next-player-btn').classList.add('hidden');
+            }
+        }
+
+        document.getElementById('reveal-role-btn').addEventListener('click', async () => {
+            const response = await fetch(API_BASE_URL + '/api/game/reveal_and_next', { method: 'POST' });
+            const data = await response.json();
+            if (response.ok) {
+                document.getElementById('role-name').textContent = data.role_name;
+                document.getElementById('role-name').classList.remove('hidden');
+                document.getElementById('reveal-role-btn').classList.add('hidden');
+                document.getElementById('show-description-btn').classList.remove('hidden');
+                document.getElementById('next-player-btn').classList.remove('hidden');
+            } else {
+                alert(data.error);
+            }
+        });
+        
+        document.getElementById('show-description-btn').addEventListener('click', async () => {
+            const response = await fetch(API_BASE_URL + '/api/game/roles');
+            const data = await response.json();
+            const roleName = document.getElementById('role-name').textContent;
+            const description = data.role_descriptions[roleName];
+            if (description) {
+                document.getElementById('role-description').textContent = description;
+                document.getElementById('role-description').classList.remove('hidden');
+                document.getElementById('show-description-btn').classList.add('hidden');
+            }
+        });
+        
+        document.getElementById('next-player-btn').addEventListener('click', () => {
+            loadCardPage();
+        });
+
+        // --- Neustart-Seite Logik ---
+        document.getElementById('start-page-btn').addEventListener('click', () => {
+            showPage('start-page');
+            // Die Logik, die alles im Backend zurücksetzt, ist bereits im Start-Button.
+        });
+
+        // --- Rollen-Info Pop-up ---
+        function showInfo(roleName) {
+            fetch(API_BASE_URL + '/api/game/roles')
+                .then(response => response.json())
+                .then(data => {
+                    const description = data.role_descriptions[roleName];
+                    document.getElementById('popup-role-name').textContent = roleName;
+                    document.getElementById('popup-role-description').textContent = description;
+                    document.getElementById('info-popup').style.display = 'block';
+                    document.getElementById('overlay').style.display = 'block';
+                });
+        }
+        
+        function hideInfo() {
+            document.getElementById('info-popup').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
         }
     </script>
 </body>
