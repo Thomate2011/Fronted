@@ -1,0 +1,5 @@
+# Ignoriere Mac-spezifische Dateien
+.DS_Store
+
+# Ignoriere temporäre Dateien von Visual Studio Code
+.vscode/
