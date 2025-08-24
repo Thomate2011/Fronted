@@ -197,7 +197,7 @@
             z-index: 1000;
             display: none;
             transition: opacity 0.3s;
-            opacity: 0;
+            opacity: 1;
         }
         
         .popup.visible {
@@ -222,7 +222,7 @@
 <div id="app-container"></div>
 
 <script>
-    const API_BASE_URL = 'https://werwolf-game.onrender.com/api'; // WICHTIGE ÄNDERUNG: Absolute URL für das Backend
+    const API_BASE_URL = 'https://werwolf-game.onrender.com/api'; 
     let rolesDescriptions = {};
     let currentPlayerIndex = 0;
     
@@ -232,6 +232,9 @@
             options.body = JSON.stringify(data);
         }
         const response = await fetch(`${API_BASE_URL}/${endpoint}`, options);
+        if (!response.ok) {
+            throw new Error(`API-Fehler: ${response.status} ${response.statusText}`);
+        }
         return response.json();
     }
 
@@ -283,10 +286,16 @@
         `;
     }
     
+    // NEUE KORRIGIERTE FUNKTION
     async function savePlayersAndNavigate() {
         const names = document.getElementById('player-names').value;
-        await fetchData('game/players', 'POST', { players: names });
-        navigate('roles');
+        try {
+            await fetchData('game/players', 'POST', { players: names });
+            navigate('roles');
+        } catch (error) {
+            alert("Ein Fehler ist aufgetreten: " + error.message);
+            // Die Namen werden NICHT gelöscht, wenn der Aufruf fehlschlägt
+        }
     }
 
     // --- Seite 3: Rollen-Auswahl ---
@@ -547,7 +556,6 @@
         }
     }
     
-    // Startet die Anwendung beim Laden der Seite
     window.onload = () => navigate('start');
 </script>
 
