@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Werwolf Spiel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            text-align: center;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            background-color: white;
+            position: relative;
+        }
+
+        .container h1 {
+            color: #4CAF50;
+        }
+
+        .container p {
+            color: #555;
+        }
+
+        .container button {
+            font-size: 1.2em;
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            color: white;
+            transition: background-color 0.3s;
+        }
+
+        .button-primary {
+            background-color: #4CAF50;
+        }
+
+        .button-secondary {
+            background-color: #008CBA;
+        }
+
+        .button-danger {
+            background-color: #f44336;
+        }
+        
+        a {
+            text-decoration: none;
+        }
+
+        /* Home Page */
+        #start-page button {
+            background-color: #4CAF50;
+        }
+
+        /* Players Page */
+        #players-page textarea {
+            width: 80%;
+            padding: 10px;
+            font-size: 1em;
+            box-sizing: border-box;
+        }
+
+        #players-page button {
+            background-color: #008CBA;
+        }
+
+        /* Roles Page */
+        .role-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 5px 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .role-item span {
+            font-size: 1.1em;
+            color: #333;
+        }
+
+        .role-item button {
+            font-size: 1.2em;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        .role-info-btn {
+            background-color: #008CBA;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-left: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Cards Page */
+        #cards-page #player-card {
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            border: 2px dashed #008CBA;
+            border-radius: 10px;
+        }
+
+        #cards-page #role-name {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #f44336;
+        }
+
+        /* Gamemaster Page */
+        #gamemaster-page #player-list {
+            text-align: left;
+            margin: 20px auto;
+            width: 80%;
+        }
+
+        #gamemaster-page .player-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            cursor: pointer;
+        }
+        
+        #gamemaster-page .player-list-item:hover {
+            background-color: #f9f9f9;
+        }
+
+        .dead-player {
+            text-decoration: line-through;
+            color: #888;
+        }
+
+        /* Pop-up and Overlay */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 999;
+            transition: opacity 0.3s;
+            opacity: 0;
+            visibility: hidden;
+        }
+        
+        .overlay-transparent {
+            background-color: rgba(255, 255, 255, 0.8);
+        }
+
+        .overlay-opaque {
+            background-color: white;
+        }
+        
+        .overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            max-width: 400px;
+            background: white;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: none;
+            transition: opacity 0.3s;
+            opacity: 0;
+        }
+        
+        .popup.visible {
+            display: block;
+            opacity: 1;
+        }
+        
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="app-container"></div>
+
+<script>
+    const API_BASE_URL = 'https://werwolf-game.onrender.com/api'; // WICHTIGE ÄNDERUNG: Absolute URL für das Backend
+    let rolesDescriptions = {};
+    let currentPlayerIndex = 0;
+    
+    async function fetchData(endpoint, method = 'GET', data = null) {
+        const options = { method, headers: { 'Content-Type': 'application/json' } };
+        if (data) {
+            options.body = JSON.stringify(data);
+        }
+        const response = await fetch(`${API_BASE_URL}/${endpoint}`, options);
+        return response.json();
+    }
+
+    async function loadRolesDescriptions() {
+        rolesDescriptions = await fetchData('roles_descriptions');
+    }
+
+    async function navigate(pageId) {
+        const container = document.getElementById('app-container');
+        container.innerHTML = '';
+        
+        if (pageId === 'start') {
+            renderStartPage(container);
+        } else if (pageId === 'players') {
+            await renderPlayersPage(container);
+        } else if (pageId === 'roles') {
+            await renderRolesPage(container);
+        } else if (pageId === 'cards') {
+            await renderCardsPage(container);
+        } else if (pageId === 'gamemaster') {
+            await renderGamemasterPage(container);
+        }
+    }
+
+    // --- Seite 1: Startseite ---
+    function renderStartPage(container) {
+        container.innerHTML = `
+            <div class="container" id="start-page">
+                <h1>Willkommen bei dem Werwolf-Spiel von Thomas.</h1>
+                <p>Hier kannst du einfach die Rollen für dein Werwolf-Spiel verteilen und sie dir erklären lassen.</p>
+                <hr style="margin: 30px auto; width: 50%;">
+                <button onclick="navigate('players')">Zum Spiel</button>
+            </div>
+        `;
+    }
+
+    // --- Seite 2: Spieler-Eingabe ---
+    async function renderPlayersPage(container) {
+        const playersData = await fetchData('game/players');
+        const playersText = playersData.players.join('\n');
+        
+        container.innerHTML = `
+            <div class="container" id="players-page">
+                <h1 style="color: #4CAF50;">Namen eingeben</h1>
+                <p style="font-size: 1em; color: #555;">Gib die Namen der Spieler ein (jeder Name in einer neuen Zeile).</p>
+                <textarea id="player-names" rows="10" cols="40">${playersText}</textarea><br><br>
+                <button onclick="savePlayersAndNavigate()">Zu den Rollen</button>
+            </div>
+        `;
+    }
+    
+    async function savePlayersAndNavigate() {
+        const names = document.getElementById('player-names').value;
+        await fetchData('game/players', 'POST', { players: names });
+        navigate('roles');
+    }
+
+    // --- Seite 3: Rollen-Auswahl ---
+    async function renderRolesPage(container) {
+        await loadRolesDescriptions();
+        const playersCountData = await fetchData('game/players');
+        const totalPlayers = playersCountData.count;
+        const savedRoles = await fetchData('game/roles_count');
+        const totalRolesSelected = Object.values(savedRoles).reduce((a, b) => a + b, 0);
+
+        if (totalPlayers === 0) {
+            navigate('players');
+            return;
+        }
+
+        let rolesHtml = "";
+        for (const role in rolesDescriptions) {
+            const count = savedRoles[role] || 0;
+            rolesHtml += `
+                <div class="role-item">
+                    <div style="display: flex; align-items: center;">
+                        <span>${role}</span>
+                        <button class="role-info-btn" onclick="showInfo('${role}', 'transparent')">i</button>
+                    </div>
+                    <div>
+                        <button onclick="decrementRole('${role}')">-</button>
+                        <span id="${role}-count">${count}</span>
+                        <button onclick="incrementRole('${role}')">+</button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        container.innerHTML = `
+            <div class="container" id="roles-page">
+                <h1>Rollen auswählen</h1>
+                <p>Wähle genau ${totalPlayers} Rollen aus.</p>
+                <p style="color: #008CBA;">Noch zu vergeben: <span id="roles-to-go">${totalPlayers - totalRolesSelected}</span></p>
+                <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 20px;">
+                    <button class="button-danger" onclick="navigate('players')">Zurück</button>
+                    <button id="start-button" class="button-primary" onclick="startGame()">Mischen</button>
+                </div>
+                <div id="roles-list">${rolesHtml}</div>
+            </div>
+        `;
+        
+        updateRolesToGo();
+    }
+    
+    function updateRolesToGo() {
+        const rolesCountElements = document.querySelectorAll('#roles-list span[id$="-count"]');
+        let totalSelected = 0;
+        rolesCountElements.forEach(el => totalSelected += parseInt(el.textContent));
+
+        const rolesToGoElement = document.getElementById("roles-to-go");
+        const startButton = document.getElementById("start-button");
+        
+        fetchData('game/players').then(data => {
+            const totalPlayers = data.count;
+            const remaining = totalPlayers - totalSelected;
+            rolesToGoElement.textContent = remaining;
+            
+            if (remaining === 0) {
+                startButton.style.display = 'inline-block';
+            } else {
+                startButton.style.display = 'none';
+            }
+        });
+    }
+
+    async function saveRoles() {
+        const rolesCount = {};
+        document.querySelectorAll('#roles-list .role-item span[id$="-count"]').forEach(span => {
+            const role = span.id.replace('-count', '');
+            rolesCount[role] = parseInt(span.textContent);
+        });
+        await fetchData('game/save_roles', 'POST', { role_counts: rolesCount });
+    }
+    
+    function incrementRole(role) {
+        const rolesToGo = parseInt(document.getElementById("roles-to-go").textContent);
+        if (rolesToGo > 0) {
+            const countElement = document.getElementById(role + '-count');
+            countElement.textContent = parseInt(countElement.textContent) + 1;
+            updateRolesToGo();
+            saveRoles();
+        }
+    }
+
+    function decrementRole(role) {
+        const countElement = document.getElementById(role + '-count');
+        if (parseInt(countElement.textContent) > 0) {
+            countElement.textContent = parseInt(countElement.textContent) - 1;
+            updateRolesToGo();
+            saveRoles();
+        }
+    }
+    
+    async function startGame() {
+        const rolesCount = {};
+        document.querySelectorAll('#roles-list .role-item span[id$="-count"]').forEach(span => {
+            const role = span.id.replace('-count', '');
+            rolesCount[role] = parseInt(span.textContent);
+        });
+        
+        const response = await fetchData('game/start', 'POST', { role_counts: rolesCount });
+        if (response.error) {
+            alert(response.error);
+        } else {
+            navigate('cards');
+        }
+    }
+
+    // --- Seite 4: Rollen aufdecken ---
+    async function renderCardsPage(container) {
+        container.innerHTML = `
+            <div class="container" id="cards-page">
+                <h1>Rollen aufdecken</h1>
+                <div id="player-card">
+                    <h2 id="player-name"></h2>
+                    <p id="role-name" style="display: none;"></p>
+                    <p id="role-description" style="display: none;"></p>
+                    <button id="reveal-btn" class="button-secondary">Rolle aufdecken</button>
+                    <button id="description-btn" class="button-secondary" style="display: none;">Erklärung</button>
+                    <button id="next-btn" class="button-primary" style="display: none;">Nächster Spieler</button>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('reveal-btn').addEventListener('click', revealCard);
+        document.getElementById('description-btn').addEventListener('click', showDescription);
+        document.getElementById('next-btn').addEventListener('click', nextPlayer);
+
+        fetchCurrentPlayer();
+    }
+    
+    async function fetchCurrentPlayer() {
+        const data = await fetchData('game/next_card');
+        if (data.message) {
+            navigate('gamemaster');
+        } else {
+            document.getElementById('player-name').textContent = data.player_name;
+            currentPlayerIndex = data.current_player_index;
+            document.getElementById('reveal-btn').style.display = 'inline-block';
+            document.getElementById('role-name').style.display = 'none';
+            document.getElementById('description-btn').style.display = 'none';
+            document.getElementById('role-description').style.display = 'none';
+            document.getElementById('next-btn').style.display = 'none';
+        }
+    }
+
+    async function revealCard() {
+        const data = await fetchData('game/reveal', 'POST');
+        if (data.error) {
+            alert(data.error);
+        } else {
+            document.getElementById('role-name').textContent = data.role_name;
+            document.getElementById('role-description').textContent = data.role_description;
+            document.getElementById('role-name').style.display = 'block';
+            document.getElementById('reveal-btn').style.display = 'none';
+            document.getElementById('description-btn').style.display = 'inline-block';
+            document.getElementById('next-btn').style.display = 'inline-block';
+        }
+    }
+    
+    function showDescription() {
+        document.getElementById('role-description').style.display = 'block';
+        document.getElementById('description-btn').style.display = 'none';
+    }
+    
+    function nextPlayer() {
+        fetchCurrentPlayer();
+    }
+
+    // --- Seite 5: Spielübersicht (Spielleiter) ---
+    async function renderGamemasterPage(container) {
+        const players = await fetchData('gamemaster/view');
+        let playersHtml = "";
+        players.forEach(player => {
+            const statusClass = player.status === 'dead' ? 'dead-player' : '';
+            playersHtml += `
+                <div class="player-list-item ${statusClass}">
+                    <span onclick="killPlayer('${player.name}')">
+                        <span style="font-weight: bold;">${player.role}</span> | ${player.name}
+                    </span>
+                    <button class="role-info-btn" onclick="showInfo('${player.role}', 'opaque')">i</button>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = `
+            <div class="container" id="gamemaster-page">
+                <h1>Spielübersicht</h1>
+                <p>Tippe auf den Namen, um einen ausgeschiedenen Spieler zu entfernen.</p>
+                <div id="player-list">${playersHtml}</div>
+                <div style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;">
+                    <button class="button-danger" onclick="restartGame()">Neustart</button>
+                    <button class="button-primary" onclick="window.location.reload();">Zur Startseite</button>
+                </div>
+            </div>
+        `;
+    }
+    
+    async function killPlayer(playerName) {
+        const confirmKill = confirm(`Spieler '${playerName}' als 'tot' markieren?`);
+        if (confirmKill) {
+            const response = await fetchData(`gamemaster/kill/${playerName}`, 'PUT');
+            if (response.message) {
+                navigate('gamemaster');
+            } else {
+                alert(response.error);
+            }
+        }
+    }
+
+    async function restartGame() {
+        const response = await fetchData('game/restart', 'POST');
+        if (response.message) {
+            alert(response.message);
+            navigate('roles');
+        } else {
+            alert(response.error);
+        }
+    }
+    
+    // --- Pop-up-Funktionen ---
+    function showInfo(role, overlayType) {
+        const overlay = document.createElement('div');
+        overlay.classList.add('overlay', 'visible');
+        if (overlayType === 'transparent') {
+            overlay.classList.add('overlay-transparent');
+        } else {
+            overlay.classList.add('overlay-opaque');
+        }
+        overlay.onclick = hideInfo;
+        
+        const popup = document.createElement('div');
+        popup.classList.add('popup', 'visible');
+        popup.innerHTML = `
+            <h2>${role}</h2>
+            <p>${rolesDescriptions[role] || 'Keine Erklärung verfügbar.'}</p>
+            <button class="close-btn" onclick="hideInfo()">&times;</button>
+        `;
+        
+        document.body.appendChild(overlay);
+        document.body.appendChild(popup);
+    }
+    
+    function hideInfo() {
+        const overlay = document.querySelector('.overlay');
+        const popup = document.querySelector('.popup');
+        
+        if (overlay) {
+            document.body.removeChild(overlay);
+        }
+        if (popup) {
+            document.body.removeChild(popup);
+        }
+    }
+    
+    // Startet die Anwendung beim Laden der Seite
+    window.onload = () => navigate('start');
+</script>
+
+</body>
+</html>
