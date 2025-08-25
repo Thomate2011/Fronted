@@ -109,7 +109,30 @@
     <div id="overlay" onclick="hideInfo()" class="overlay"></div>
 
     <script>
-        const BACKEND_URL = "https://werwolf-game.onrender.com";
+        const API_URL = 'https://werwolf-game.onrender.com/api';
+
+        // Helper-Funktion für alle API-Aufrufe mit Credentials
+        async function api(endpoint, data = null) {
+            const options = {
+                credentials: 'include'
+            };
+
+            if (data) {
+                options.method = 'POST';
+                options.headers = { 'Content-Type': 'application/json' };
+                options.body = JSON.stringify(data);
+            }
+
+            const response = await fetch(API_URL + endpoint, options);
+            const result = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(result.error || "Ein unbekannter Fehler ist aufgetreten.");
+            }
+            
+            return result;
+        }
+
         let ALL_ROLES_DESCRIPTIONS = {};
         let rolesCount = {};
         let totalPlayers = 0;
@@ -120,20 +143,8 @@
             document.querySelectorAll('.page').forEach(page => {
                 page.classList.remove('active');
             });
-
-            // Speichere die Namen im LocalStorage
-            const savedPlayersString = localStorage.getItem('saved_players');
-            if (savedPlayersString) {
-                playerNamesList = savedPlayersString.split('\n').map(name => name.trim()).filter(name => name !== '');
-                if (playerNamesList.length > 0 && pageId === 'names') {
-                    // Wenn Namen vorhanden sind und wir zur Namen-Seite navigieren, gehe direkt zur Rollen-Seite
-                    pageId = 'roles';
-                }
-            }
-            
             document.getElementById(pageId + '-page').classList.add('active');
 
-            // Logik für jede Seite
             if (pageId === 'names') {
                 loadPlayers();
             } else if (pageId === 'roles') {
@@ -148,8 +159,9 @@
         // --- Startseite Logik ---
         function goToHome() {
             localStorage.clear();
-            fetch(`${BACKEND_URL}/api/game/restart_session`, { method: 'POST' });
-            showPage('start');
+            api('/game/restart_session', {}).finally(() => {
+                showPage('start');
+            });
         }
 
         // --- Namen-Seite Logik ---
@@ -162,23 +174,27 @@
 
         async function savePlayersAndShowRoles() {
             const namenString = document.getElementById('player-names-input').value;
+            playerNamesList = namenString.split('\n').map(name => name.trim()).filter(name => name !== '');
             localStorage.setItem('saved_players', namenString);
 
-            // Aktualisiere den Server-Zustand mit den Namen
-            await fetch(`${BACKEND_URL}/api/game/save_players`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ players: namenString })
-            });
+            if (playerNamesList.length === 0) {
+                alert("Bitte gib zuerst die Namen der Spieler ein.");
+                return;
+            }
 
-            showPage('roles');
+            try {
+                await api('/game/save_players', { players: namenString });
+                showPage('roles');
+            } catch (error) {
+                console.error("Fehler beim Speichern der Namen:", error);
+                alert("Fehler beim Speichern der Namen. Bitte versuche es erneut.");
+            }
         }
 
         // --- Rollen-Seite Logik ---
         async function loadRoles() {
             try {
-                const response = await fetch(`${BACKEND_URL}/api/game/get_players_and_roles_count`);
-                const data = await response.json();
+                const data = await api('/game/get_players_and_roles_count');
                 
                 totalPlayers = data.player_count;
                 ALL_ROLES_DESCRIPTIONS = data.all_roles;
@@ -218,7 +234,7 @@
                 updateRolesToGo();
             } catch (error) {
                 console.error("Fehler beim Laden der Rollen:", error);
-                document.getElementById('roles-list').innerHTML = '<p>Ein Fehler ist aufgetreten.</p>';
+                document.getElementById('roles-list').innerHTML = '<p>Ein Fehler ist aufgetreten. Bitte versuche, die Seite neu zu laden oder zur Startseite zurückzukehren.</p>';
             }
         }
 
@@ -256,45 +272,35 @@
 
         async function saveRoles() {
             localStorage.setItem('saved_roles', JSON.stringify(rolesCount));
-            await fetch(`${BACKEND_URL}/api/game/save_roles`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ 'role_counts': rolesCount })
-            });
+            try {
+                await api('/game/save_roles', { 'role_counts': rolesCount });
+            } catch (error) {
+                console.error("Fehler beim Speichern der Rollen:", error);
+            }
         }
 
         async function startGame() {
-            const response = await fetch(`${BACKEND_URL}/api/game/roles`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ 'role_counts': rolesCount })
-            });
-            const result = await response.json();
-            if (response.ok) {
+            try {
+                const data = await api('/game/roles', { 'role_counts': rolesCount });
                 showPage('cards');
-            } else {
-                alert(result.error);
+            } catch (error) {
+                alert(error.message);
             }
         }
 
         // --- Karten-Seite Logik ---
         async function loadCard() {
             try {
-                const response = await fetch(`${BACKEND_URL}/api/game/next_card`);
-                const data = await response.json();
-                if (response.ok) {
-                    if (data.message) {
-                        showPage('overview');
-                    } else {
-                        document.getElementById('current-player-name').textContent = data.player_name;
-                        document.getElementById('reveal-role-btn').style.display = 'inline-block';
-                        document.getElementById('revealed-role-name').style.display = 'none';
-                        document.getElementById('revealed-role-description').style.display = 'none';
-                        document.getElementById('show-description-btn').style.display = 'none';
-                        document.getElementById('next-player-btn').style.display = 'none';
-                    }
+                const data = await api('/game/next_card');
+                if (data.message) {
+                    showPage('overview');
                 } else {
-                    showPage('names');
+                    document.getElementById('current-player-name').textContent = data.player_name;
+                    document.getElementById('reveal-role-btn').style.display = 'inline-block';
+                    document.getElementById('revealed-role-name').style.display = 'none';
+                    document.getElementById('revealed-role-description').style.display = 'none';
+                    document.getElementById('show-description-btn').style.display = 'none';
+                    document.getElementById('next-player-btn').style.display = 'none';
                 }
             } catch (error) {
                 console.error("Fehler beim Laden der Karte:", error);
@@ -303,17 +309,16 @@
         }
 
         async function revealCard() {
-            const response = await fetch(`${BACKEND_URL}/api/game/reveal_and_next`, { method: 'POST' });
-            const data = await response.json();
-            if (response.ok) {
+            try {
+                const data = await api('/game/reveal_and_next', {});
                 currentRoleData = data;
                 document.getElementById('revealed-role-name').textContent = data.role_name;
                 document.getElementById('revealed-role-name').style.display = 'block';
                 document.getElementById('reveal-role-btn').style.display = 'none';
                 document.getElementById('show-description-btn').style.display = 'inline-block';
                 document.getElementById('next-player-btn').style.display = 'inline-block';
-            } else {
-                alert(data.error);
+            } catch (error) {
+                alert(error.message);
             }
         }
 
@@ -328,15 +333,10 @@
         // --- Übersichts-Seite Logik ---
         async function loadOverview() {
             try {
-                const rolesResponse = await fetch(`${BACKEND_URL}/api/game/get_players_and_roles_count`);
-                const rolesData = await rolesResponse.json();
-                ALL_ROLES_DESCRIPTIONS = rolesData.all_roles;
+                const data = await api('/game/get_players_and_roles_count');
+                ALL_ROLES_DESCRIPTIONS = data.all_roles;
 
-                const playersResponse = await fetch(`${BACKEND_URL}/api/gamemaster/view`);
-                if (!playersResponse.ok) {
-                    throw new Error('Fehler beim Laden der Spielerübersicht.');
-                }
-                const playersData = await playersResponse.json();
+                const playersData = await api('/gamemaster/view');
 
                 const playerList = document.getElementById('player-list');
                 playerList.innerHTML = '';
@@ -366,20 +366,23 @@
         async function killPlayer(playerName) {
             const confirmKill = confirm(`Spieler '${playerName}' als 'tot' markieren?`);
             if (confirmKill) {
-                const killResponse = await fetch(`${BACKEND_URL}/api/gamemaster/kill/${playerName}`, { method: 'PUT' });
-                if (killResponse.ok) {
+                try {
+                    await api(`/gamemaster/kill/${playerName}`, {});
                     loadOverview();
-                } else {
+                } catch (error) {
                     alert('Fehler beim Markieren des Spielers.');
                 }
             }
         }
 
         async function restartGame() {
-            const response = await fetch(`${BACKEND_URL}/api/game/restart`, { method: 'POST' });
-            const result = await response.json();
-            alert(result.message);
-            showPage('roles');
+            try {
+                const data = await api('/game/restart', {});
+                alert(data.message);
+                showPage('roles');
+            } catch (error) {
+                alert("Fehler beim Zurücksetzen des Spiels.");
+            }
         }
 
         function showInfo(role) {
@@ -403,8 +406,7 @@
         // Initialer Seitenaufruf
         document.addEventListener('DOMContentLoaded', () => {
             const savedPlayersString = localStorage.getItem('saved_players');
-            const savedRolesString = localStorage.getItem('saved_roles');
-            if (savedPlayersString || savedRolesString) {
+            if (savedPlayersString && savedPlayersString.trim().length > 0) {
                 showPage('roles');
             } else {
                 showPage('start');
