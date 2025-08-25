@@ -1,189 +1,390 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-<meta charset="UTF-8">
-<title>Werwolf-Spiel</title>
-<style>
-body {font-family: Arial,sans-serif; background: #f2f2f2; margin:0;}
-.center-box { background:#fff; max-width:600px; margin:30px auto; padding:30px 25px; border-radius:12px; box-shadow:0 6px 24px rgba(0,0,0,.08);}
-h1,h2 {color:#4CAF50;}
-textarea { width:95%; font-size:1em; border-radius:6px; border:1px solid #aaa; padding:6px 2%;}
-button {font-size:1.1em; margin:7px; padding:9px 25px; border-radius:6px; border:0;}
-button.green {background:#4CAF50; color:#fff;}
-button.blue {background:#008CBA; color:#fff;}
-button.red {background:#f44336; color:#fff;}
-button.gr {background:#888; color:#fff;}
-.role-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #f2f2f2;}
-.role-btns {display:flex; align-items:center;}
-.info-btn {background:#008CBA; color:#fff; border-radius:50%; font-weight:bold; width:24px; height:24px; margin-left:10px;}
-.count-round {display:inline-block;min-width:26px;text-align:center;}
-#overlay {position:fixed; top:0;left:0;width:100vw; height:100vh;background:#fff;z-index:10000; display:none;}
-#infobox {position:fixed; top:50%; left:50%; width:360px; max-width:94vw; background:#fff; z-index:12000;
-  border-radius:10px; padding:30px 22px; box-shadow:0 6px 40px rgba(0,0,0,.15);
-  transform:translate(-50%,-50%);}
-#infobox h2 {margin-top:0;}
-#closeinfo {position:absolute; top:10px; right:18px; font-size:2em; background:none; border:none; color:#444; cursor:pointer;}
-.player-row { display:flex;justify-content:space-between;align-items:center; margin:6px 0;}
-.player-row.dead { color:#888;text-decoration:line-through;}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Werwolf-Spiel</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f0f0f0; }
+        .container { text-align: center; max-width: 600px; margin: 50px auto; padding: 20px; border: 1px solid #ccc; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); background-color: white; }
+        h1 { color: #4CAF50; }
+        p { font-size: 1.2em; color: #555; }
+        hr { margin: 30px auto; width: 50%; }
+        button { font-size: 1.2em; padding: 10px 20px; cursor: pointer; border: none; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); margin-top: 15px; }
+        .btn-green { background-color: #4CAF50; color: white; }
+        .btn-blue { background-color: #008CBA; color: white; }
+        .btn-red { background-color: #f44336; color: white; }
+        .btn-info { font-size: 1em; margin-left: 10px; padding: 0 5px; width: 20px; height: 20px; border-radius: 50%; border: 1px solid #008CBA; background-color: #008CBA; color: white; cursor: pointer; display: flex; justify-content: center; align-items: center; }
+        
+        /* Seitenansichten */
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* Rollenseite */
+        .role-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 5px 10px; border: 1px solid #ddd; border-radius: 5px; }
+        .role-counter button { font-size: 1.2em; padding: 5px 10px; cursor: pointer; }
+
+        /* Kartenansicht */
+        #player-card { min-height: 200px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; border: 2px dashed #008CBA; border-radius: 10px; }
+        #role-name { font-size: 1.5em; font-weight: bold; color: #f44336; }
+        .btn-reveal-desc { font-size: 1em; padding: 8px 15px; background-color: #2196F3; color: white; }
+
+        /* Übersicht */
+        .player-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #ddd; cursor: pointer; text-align: left; }
+        .dead-player { text-decoration: line-through; color: #888; }
+        .player-item .info-btn { margin-right: 0; }
+        
+        /* Pop-up und Overlay */
+        .info-popup { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; max-width: 400px; background: white; padding: 20px; border: 1px solid #ccc; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); z-index: 1001; }
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 1000; }
+    </style>
 </head>
 <body>
-<div id="main"></div>
-
-<div id="overlay">
-  <div id="infobox">
-    <button id="closeinfo">×</button>
-    <h2 id="infotitle"></h2>
-    <div id="infotext"></div>
-  </div>
-</div>
-
-<script>
-// Setze API-URL für alle Aufrufe auf Render:
-const API = 'https://werwolf-game.onrender.com/api';
-
-let names = [], roleCounts = {}, assignment = {}, who = 0, roletxts={};
-
-function api(endpoint, data) {
-  return fetch(API+endpoint, data ? {
-    method: "POST", headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)
-  } : undefined).then(r=>r.json());
-}
-function $(id) { return document.getElementById(id); }
-
-// -------- UI ABSCHNITTE --------
-function renderStart() {
-  $('main').innerHTML = `<div class="center-box">
-    <h1>Willkommen beim Werwolf-Spiel von Thomas</h1>
-    <p style="font-size:1.2em; color:#555;">Hier kannst du einfach Rollen für dein Werwolf-Spiel verteilen.</p>
-    <hr style="margin:30px auto; width:50%;">
-    <button class="green" onclick="renderNames()">Zum Spiel</button>
-  </div>`;
-}
-async function renderNames() {
-  let nms = await fetch(API+'/names').then(r=>r.json()).then(j=>j.names||[]);
-  $('main').innerHTML = `<div class="center-box">
-    <h2>Namen eingeben</h2>
-    <p>Gib die Namen der Spieler ein (jeder Name in einer neuen Zeile).</p>
-    <textarea id="nametxt" rows="8" placeholder="Hier Namen eintragen...">${nms.join('\n')}</textarea><br>
-    <button class="blue" onclick="saveNames()">Zu den Rollen</button>
-  </div>`;
-}
-function saveNames() {
-  let nm = $('nametxt').value.split('\n').map(x=>x.trim()).filter(Boolean);
-  if(nm.length<4) return alert('Mindestens 4 Namen!');
-  api('/names', {names:nm}).then(()=>renderRoles());
-}
-async function renderRoles() {
-  let data = await fetch(API+'/roles').then(r=>r.json());
-  let nms = await fetch(API+'/names').then(r=>r.json()).then(j=>j.names);
-  names = nms; roletxts = data.all_roles||{}; roleCounts = data.role_counts||{};
-  let rows = Object.keys(roletxts).map(role=>`
-    <div class="role-row">
-      <span><b>${role}</b>
-      <button class="info-btn" onclick="showInfo('${role}')">i</button></span>
-      <span class="role-btns">
-        <button onclick="chgRole('${role}',-1)" class="gr">-</button>
-        <span class="count-round" id="c_${role.replace(/ /g,'_')}">${roleCounts[role]||0}</span>
-        <button onclick="chgRole('${role}',1)" class="gr">+</button>
-      </span>
+    <div id="start-page" class="page active">
+        <div class="container">
+            <h1>Willkommen bei dem Werwolf-Spiel von Thomas.</h1>
+            <p>Hier kannst du einfach die Rollen für dein Werwolf-Spiel verteilen und sie dir erklären lassen.</p>
+            <hr>
+            <button class="btn-green" onclick="showPage('names')">Zum Spiel</button>
+        </div>
     </div>
-  `).join('');
-  let sum = Object.values(roleCounts).reduce((a,b)=>a+b,0), miss = names.length - sum;
-  $('main').innerHTML = `<div class="center-box">
-    <h2>Rollen auswählen</h2>
-    <p>Wähle genau ${names.length} Rollen aus.</p>
-    <p style="color:#008CBA;">Noch zu vergeben: <span id="miss">${miss}</span></p>
-    <button class="red" onclick="renderNames()">Zurück</button>
-    <button class="green" style="display:${miss===0?'inline-block':'none'}" id="mixbtn" onclick="startMix()">Mischen</button>
-    <div style="margin:18px 0 8px 0">${rows}</div>
-    <button class="green" style="display:${miss===0?'inline-block':'none'}" id="mixbtn2" onclick="startMix()">Mischen</button>
-  </div>`;
-}
-function chgRole(role, d) {
-  let sum = Object.values(roleCounts).reduce((a,b)=>a+b,0);
-  roleCounts[role] = (roleCounts[role]||0) + d;
-  if(roleCounts[role]<0) roleCounts[role]=0;
-  if(d>0 && sum>=names.length) roleCounts[role]--;
-  $('c_'+role.replace(/ /g,'_')).textContent = roleCounts[role];
-  let miss = names.length - Object.values(roleCounts).reduce((a,b)=>a+b,0);
-  $('miss').textContent = miss;
-  api('/roles', {role_counts:roleCounts});
-  let show = miss===0?'inline-block':'none';
-  if($('mixbtn')) $('mixbtn').style.display=show;
-  if($('mixbtn2')) $('mixbtn2').style.display=show;
-}
-function showInfo(role) {
-  $('overlay').style.display = 'block';
-  $('infotitle').textContent = role;
-  $('infotext').textContent = roletxts[role]||'';
-}
-$('closeinfo').onclick = ()=>{ $('overlay').style.display='none'; };
 
-async function startMix() {
-  let nms = await fetch(API+'/names').then(res=>res.json()).then(j=>j.names||[]);
-  let sum = Object.values(roleCounts).reduce((a,b)=>a+b,0);
-  if(sum !== nms.length) return alert('Rollenanzahl stimmt nicht!');
-  api('/mixroles').then(j=>{ if(j.error)alert(j.error); else renderCards(); });
-}
-
-async function renderCards() {
-  let resp = await fetch(API+'/next_card').then(r=>r.json());
-  if(resp.done) { renderOverview(); return; }
-  $('main').innerHTML = `<div class="center-box">
-      <h2>Rollen aufdecken</h2>
-      <h3 id="pname">${resp.player_name}</h3>
-      <div id="roleblock"></div>
-      <button class="blue" id="revealbtn" onclick="revealCard()">Rolle aufdecken</button>
-    </div>`;
-}
-function revealCard() {
-  api('/reveal_card').then(j=>{
-    let b = `<div style="margin:14px 0 10px 0">
-      <span style="color:#f44336;font-size:1.4em"><b>${j.role_name||''}</b></span><br>
+    <div id="names-page" class="page">
+        <div class="container">
+            <h1>Namen eingeben</h1>
+            <p>Gib die Namen der Spieler ein (jeder Name in einer neuen Zeile).</p>
+            <textarea id="player-names-input" rows="10" cols="40"></textarea><br>
+            <button class="btn-blue" onclick="savePlayersAndShowRoles()">Zu den Rollen</button>
+        </div>
     </div>
-    <button class="blue" onclick="showInfo('${j.role_name}')">Erklärung</button>
-    <button class="green" onclick="renderCards()" style="margin-left:16px">Nächster Spieler</button>`;
-    $('roleblock').innerHTML = b;
-    $('revealbtn').style.display = 'none';
-  });
-}
 
-async function renderOverview() {
-  let state = await fetch(API+'/status').then(r=>r.json());
-  let nms = await fetch(API+'/names').then(r=>r.json()).then(j=>j.names);
-  let sum = Object.values(roleCounts).reduce((a,b)=>a+b,0), miss = nms.length - sum;
-  let rows = state.map(p =>
-    `<div class="player-row${p.status==='dead'?' dead':''}">
-      <span style="flex:1;cursor:pointer" onclick="killPlayer('${p.name}')">
-        <b>${p.role}</b> | ${p.name}
-      </span>
-      <button class="info-btn" onclick="showInfo('${p.role}')">i</button>
-    </div>`).join('');
-  $('main').innerHTML = `<div class="center-box">
-    <h2>Spielübersicht</h2>
-    <p>Spieler als „tot“ markieren: Klick auf Name</p>
-    <div>${rows}</div>
-    <div style="margin-top:22px;">
-      <button class="red" onclick="resetSoft()">Neustart</button>
-      <button class="green" onclick="doInit()" style="margin-left:20px;">Zur Startseite</button>
+    <div id="roles-page" class="page">
+        <div class="container">
+            <h1>Rollen auswählen</h1>
+            <p>Wähle genau <span id="player-count"></span> Rollen aus.</p>
+            <p style="font-size: 1.2em; color: #008CBA;">Noch zu vergeben: <span id="roles-to-go"></span></p>
+            
+            <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 20px;">
+                <button class="btn-red" onclick="showPage('names')">Zurück</button>
+                <button id="start-button-top" class="btn-green" onclick="startGame()" style="display: none;">Mischen</button>
+            </div>
+            
+            <div id="roles-list"></div>
+            <button id="start-button-bottom" class="btn-green" onclick="startGame()" style="display: none;">Mischen</button>
+        </div>
     </div>
-  </div>`;
-}
+    
+    <div id="cards-page" class="page">
+        <div class="container">
+            <h1>Rollen aufdecken</h1>
+            <div id="player-card">
+                <h2 id="current-player-name"></h2>
+                <p id="revealed-role-name" style="display: none;"></p>
+                <p id="revealed-role-description" style="display: none;"></p>
+                <button id="reveal-role-btn" class="btn-blue">Rolle aufdecken</button>
+                <button id="show-description-btn" class="btn-reveal-desc" style="display: none;">Erklärung</button>
+                <button id="next-player-btn" class="btn-blue" style="display: none;">Nächster Spieler</button>
+            </div>
+        </div>
+    </div>
 
-function killPlayer(name) {
-  if(!confirm(`Spieler "${name}" als tot markieren?`)) return;
-  api('/status', {kill:name}).then(()=>renderOverview());
-}
-function resetSoft() {
-  api('/resetsoft').then(()=>renderRoles());
-}
-function doInit() {
-  api('/init').then(()=>renderStart());
-}
+    <div id="overview-page" class="page">
+        <div class="container">
+            <h1>Spielübersicht</h1>
+            <p>Hallo Spielleiter! Die Rollen wurden verteilt. Viel Spaß beim Spielen!</p>
+            <p>Tippe auf den Namen, um einen ausgeschiedenen Spieler zu markieren.</p>
+            
+            <div id="player-list" style="text-align: left; margin: 20px auto; width: 80%;"></div>
+            
+            <button class="btn-red" onclick="restartGame()">Neustart</button>
+            <button class="btn-green" onclick="goToHome()">Zur Startseite</button>
+        </div>
+    </div>
 
-// --- Anfang ---
-renderStart();
-</script>
+    <div id="info-popup" class="info-popup">
+        <p id="popup-role-name" style="font-size: 1.5em; font-weight: bold; color: #008CBA; margin-bottom: 5px;"></p>
+        <p id="popup-role-description" style="font-size: 0.9em; color: #555;"></p>
+        <button onclick="hideInfo()" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 2em; cursor: pointer;">&times;</button>
+    </div>
+    <div id="overlay" onclick="hideInfo()" class="overlay"></div>
+
+    <script>
+        const BACKEND_URL = "https://werwolf-game.onrender.com";
+        let ALL_ROLES_DESCRIPTIONS = {};
+        let rolesCount = {};
+        let totalPlayers = 0;
+        let currentRoleData = null;
+
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            document.getElementById(pageId + '-page').classList.add('active');
+
+            // Logik für jede Seite
+            if (pageId === 'names') {
+                loadPlayers();
+            } else if (pageId === 'roles') {
+                loadRoles();
+            } else if (pageId === 'cards') {
+                loadCard();
+            } else if (pageId === 'overview') {
+                loadOverview();
+            }
+        }
+
+        // --- Startseite Logik ---
+        function goToHome() {
+            showPage('start');
+        }
+
+        // --- Namen-Seite Logik ---
+        async function loadPlayers() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/game/get_players_and_roles_count`);
+                const data = await response.json();
+                document.getElementById('player-names-input').value = data.players_string;
+            } catch (error) {
+                console.error("Fehler beim Laden der Spielerdaten:", error);
+            }
+        }
+
+        async function savePlayersAndShowRoles() {
+            const namenString = document.getElementById('player-names-input').value;
+            const response = await fetch(`${BACKEND_URL}/api/game/save_players`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ players: namenString })
+            });
+            if (response.ok) {
+                showPage('roles');
+            } else {
+                const result = await response.json();
+                alert(result.error);
+            }
+        }
+
+        // --- Rollen-Seite Logik ---
+        async function loadRoles() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/game/get_players_and_roles_count`);
+                const data = await response.json();
+                
+                totalPlayers = data.player_count;
+                ALL_ROLES_DESCRIPTIONS = data.all_roles;
+                rolesCount = data.saved_roles;
+
+                if (totalPlayers === 0) {
+                    showPage('names');
+                    return;
+                }
+
+                document.getElementById('player-count').textContent = totalPlayers;
+                
+                const rolesList = document.getElementById('roles-list');
+                rolesList.innerHTML = '';
+                for (const role in ALL_ROLES_DESCRIPTIONS) {
+                    const count = rolesCount[role] || 0;
+                    rolesList.innerHTML += `
+                        <div class="role-item">
+                            <div style="display: flex; align-items: center;">
+                                <span style="font-size: 1.1em; color: #333;">${role}</span>
+                                <button onclick="showInfo('${role}')" class="btn-info">i</button>
+                            </div>
+                            <div class="role-counter">
+                                <button onclick="decrementRole('${role}')">-</button>
+                                <span id="${role}-count" style="font-size: 1.2em; margin: 0 10px;">${count}</span>
+                                <button onclick="incrementRole('${role}')">+</button>
+                            </div>
+                        </div>
+                    `;
+                }
+                updateRolesToGo();
+            } catch (error) {
+                console.error("Fehler beim Laden der Rollen:", error);
+                document.getElementById('roles-list').innerHTML = '<p>Ein Fehler ist aufgetreten.</p>';
+            }
+        }
+
+        function updateRolesToGo() {
+            const totalRolesSelected = Object.values(rolesCount).reduce((a, b) => a + b, 0);
+            const remainingRoles = totalPlayers - totalRolesSelected;
+            document.getElementById("roles-to-go").textContent = remainingRoles;
+            if (remainingRoles === 0) {
+                document.getElementById("start-button-top").style.display = 'inline-block';
+                document.getElementById("start-button-bottom").style.display = 'inline-block';
+            } else {
+                document.getElementById("start-button-top").style.display = 'none';
+                document.getElementById("start-button-bottom").style.display = 'none';
+            }
+        }
+
+        function incrementRole(role) {
+            if (!rolesCount[role]) rolesCount[role] = 0;
+            if (Object.values(rolesCount).reduce((a, b) => a + b, 0) < totalPlayers) {
+                rolesCount[role]++;
+                document.getElementById(role + '-count').textContent = rolesCount[role];
+                updateRolesToGo();
+                saveRoles();
+            }
+        }
+
+        function decrementRole(role) {
+            if (rolesCount[role] > 0) {
+                rolesCount[role]--;
+                document.getElementById(role + '-count').textContent = rolesCount[role];
+                updateRolesToGo();
+                saveRoles();
+            }
+        }
+
+        async function saveRoles() {
+            await fetch(`${BACKEND_URL}/api/game/save_roles`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ 'role_counts': rolesCount })
+            });
+        }
+
+        async function startGame() {
+            const response = await fetch(`${BACKEND_URL}/api/game/roles`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ 'role_counts': rolesCount })
+            });
+            const result = await response.json();
+            if (response.ok) {
+                showPage('cards');
+            } else {
+                alert(result.error);
+            }
+        }
+
+        // --- Karten-Seite Logik ---
+        async function loadCard() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/game/next_card`);
+                const data = await response.json();
+                if (response.ok) {
+                    if (data.message) {
+                        showPage('overview');
+                    } else {
+                        document.getElementById('current-player-name').textContent = data.player_name;
+                        document.getElementById('reveal-role-btn').style.display = 'inline-block';
+                        document.getElementById('revealed-role-name').style.display = 'none';
+                        document.getElementById('revealed-role-description').style.display = 'none';
+                        document.getElementById('show-description-btn').style.display = 'none';
+                        document.getElementById('next-player-btn').style.display = 'none';
+                    }
+                } else {
+                    showPage('names');
+                }
+            } catch (error) {
+                console.error("Fehler beim Laden der Karte:", error);
+                showPage('names');
+            }
+        }
+
+        async function revealCard() {
+            const response = await fetch(`${BACKEND_URL}/api/game/reveal_and_next`, { method: 'POST' });
+            const data = await response.json();
+            if (response.ok) {
+                currentRoleData = data;
+                document.getElementById('revealed-role-name').textContent = data.role_name;
+                document.getElementById('revealed-role-name').style.display = 'block';
+                document.getElementById('reveal-role-btn').style.display = 'none';
+                document.getElementById('show-description-btn').style.display = 'inline-block';
+                document.getElementById('next-player-btn').style.display = 'inline-block';
+            } else {
+                alert(data.error);
+            }
+        }
+
+        function showDescription() {
+            if (currentRoleData) {
+                document.getElementById('revealed-role-description').textContent = currentRoleData.role_description;
+                document.getElementById('revealed-role-description').style.display = 'block';
+                document.getElementById('show-description-btn').style.display = 'none';
+            }
+        }
+
+        // --- Übersichts-Seite Logik ---
+        async function loadOverview() {
+            try {
+                const rolesResponse = await fetch(`${BACKEND_URL}/api/game/get_players_and_roles_count`);
+                const rolesData = await rolesResponse.json();
+                ALL_ROLES_DESCRIPTIONS = rolesData.all_roles;
+
+                const playersResponse = await fetch(`${BACKEND_URL}/api/gamemaster/view`);
+                if (!playersResponse.ok) {
+                    throw new Error('Fehler beim Laden der Spielerübersicht.');
+                }
+                const playersData = await playersResponse.json();
+
+                const playerList = document.getElementById('player-list');
+                playerList.innerHTML = '';
+                
+                if (playersData.length === 0) {
+                    playerList.innerHTML = '<p>Keine Spieler gefunden. Bitte starte ein neues Spiel.</p>';
+                } else {
+                    playersData.forEach(player => {
+                        const isDead = player.status === 'dead';
+                        const infoBtn = `<button onclick="showInfo('${player.role}')" class="btn-info">i</button>`;
+                        playerList.innerHTML += `
+                            <div class="player-item ${isDead ? 'dead-player' : ''}">
+                                <span onclick="killPlayer('${player.name}')" style="flex-grow: 1; display: flex; align-items: center;">
+                                    <span style="font-weight: bold; margin-right: 5px;">${player.role}</span> | ${player.name}
+                                </span>
+                                ${infoBtn}
+                            </div>
+                        `;
+                    });
+                }
+            } catch (error) {
+                console.error(error);
+                document.getElementById('player-list').innerHTML = `<p>Ein Fehler ist aufgetreten. Bitte kehre zur <a href="#" onclick="goToHome()">Startseite</a> zurück.</p>`;
+            }
+        }
+
+        async function killPlayer(playerName) {
+            const confirmKill = confirm(`Spieler '${playerName}' als 'tot' markieren?`);
+            if (confirmKill) {
+                const killResponse = await fetch(`${BACKEND_URL}/api/gamemaster/kill/${playerName}`, { method: 'PUT' });
+                if (killResponse.ok) {
+                    loadOverview(); // Lade die Liste neu
+                } else {
+                    alert('Fehler beim Markieren des Spielers.');
+                }
+            }
+        }
+
+        async function restartGame() {
+            const response = await fetch(`${BACKEND_URL}/api/game/restart`, { method: 'POST' });
+            const result = await response.json();
+            alert(result.message);
+            showPage('roles');
+        }
+
+        // --- Allgemeine Pop-up Logik ---
+        function showInfo(role) {
+            const popup = document.getElementById('info-popup');
+            const overlay = document.getElementById('overlay');
+            document.getElementById('popup-role-name').textContent = role;
+            document.getElementById('popup-role-description').textContent = ALL_ROLES_DESCRIPTIONS[role];
+            popup.style.display = 'block';
+            overlay.style.display = 'block';
+        }
+
+        function hideInfo() {
+            document.getElementById('info-popup').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+        }
+
+        // Event-Listener für Navigation und Buttons
+        document.getElementById('reveal-role-btn').addEventListener('click', revealCard);
+        document.getElementById('show-description-btn').addEventListener('click', showDescription);
+        document.getElementById('next-player-btn').addEventListener('click', loadCard);
+        
+    </script>
 </body>
 </html>
