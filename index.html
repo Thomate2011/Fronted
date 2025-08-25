@@ -1,138 +1,189 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <title>Werwolf Game UI</title>
-  <style>
-    body {font-family: Arial, sans-serif; margin: 32px; max-width: 700px;}
-    textarea, input[type="number"] {font-size: 1em;}
-    button {margin:5px; font-size: 1em;}
-    .hidden {display:none;}
-    .rolle {margin: 2px 0; border-bottom: 1px solid #eee;}
-  </style>
+<meta charset="UTF-8">
+<title>Werwolf-Spiel</title>
+<style>
+body {font-family: Arial,sans-serif; background: #f2f2f2; margin:0;}
+.center-box { background:#fff; max-width:600px; margin:30px auto; padding:30px 25px; border-radius:12px; box-shadow:0 6px 24px rgba(0,0,0,.08);}
+h1,h2 {color:#4CAF50;}
+textarea { width:95%; font-size:1em; border-radius:6px; border:1px solid #aaa; padding:6px 2%;}
+button {font-size:1.1em; margin:7px; padding:9px 25px; border-radius:6px; border:0;}
+button.green {background:#4CAF50; color:#fff;}
+button.blue {background:#008CBA; color:#fff;}
+button.red {background:#f44336; color:#fff;}
+button.gr {background:#888; color:#fff;}
+.role-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #f2f2f2;}
+.role-btns {display:flex; align-items:center;}
+.info-btn {background:#008CBA; color:#fff; border-radius:50%; font-weight:bold; width:24px; height:24px; margin-left:10px;}
+.count-round {display:inline-block;min-width:26px;text-align:center;}
+#overlay {position:fixed; top:0;left:0;width:100vw; height:100vh;background:#fff;z-index:10000; display:none;}
+#infobox {position:fixed; top:50%; left:50%; width:360px; max-width:94vw; background:#fff; z-index:12000;
+  border-radius:10px; padding:30px 22px; box-shadow:0 6px 40px rgba(0,0,0,.15);
+  transform:translate(-50%,-50%);}
+#infobox h2 {margin-top:0;}
+#closeinfo {position:absolute; top:10px; right:18px; font-size:2em; background:none; border:none; color:#444; cursor:pointer;}
+.player-row { display:flex;justify-content:space-between;align-items:center; margin:6px 0;}
+.player-row.dead { color:#888;text-decoration:line-through;}
+</style>
 </head>
 <body>
-  <h1>Werwolf Spiel (Frontend Demo)</h1>
+<div id="main"></div>
 
-  <!-- Spieler -->
-  <div id="step-1">
-    <h2>Spieler eintragen (jeder in eine neue Zeile):</h2>
-    <textarea id="spieler" rows="7" cols="40"></textarea><br>
-    <button onclick="nextToRoles()">Weiter</button>
+<div id="overlay">
+  <div id="infobox">
+    <button id="closeinfo">×</button>
+    <h2 id="infotitle"></h2>
+    <div id="infotext"></div>
   </div>
+</div>
 
-  <!-- Rollen -->
-  <div id="step-2" class="hidden">
-    <h2>Rollen auswählen</h2>
-    <div id="roles-list"></div>
-    <div>
-      <b>Noch verfügbare Rollen:&nbsp;<span id="roles-missing"></span></b>
+<script>
+// Setze API-URL für alle Aufrufe auf Render:
+const API = 'https://werwolf-game.onrender.com/api';
+
+let names = [], roleCounts = {}, assignment = {}, who = 0, roletxts={};
+
+function api(endpoint, data) {
+  return fetch(API+endpoint, data ? {
+    method: "POST", headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)
+  } : undefined).then(r=>r.json());
+}
+function $(id) { return document.getElementById(id); }
+
+// -------- UI ABSCHNITTE --------
+function renderStart() {
+  $('main').innerHTML = `<div class="center-box">
+    <h1>Willkommen beim Werwolf-Spiel von Thomas</h1>
+    <p style="font-size:1.2em; color:#555;">Hier kannst du einfach Rollen für dein Werwolf-Spiel verteilen.</p>
+    <hr style="margin:30px auto; width:50%;">
+    <button class="green" onclick="renderNames()">Zum Spiel</button>
+  </div>`;
+}
+async function renderNames() {
+  let nms = await fetch(API+'/names').then(r=>r.json()).then(j=>j.names||[]);
+  $('main').innerHTML = `<div class="center-box">
+    <h2>Namen eingeben</h2>
+    <p>Gib die Namen der Spieler ein (jeder Name in einer neuen Zeile).</p>
+    <textarea id="nametxt" rows="8" placeholder="Hier Namen eintragen...">${nms.join('\n')}</textarea><br>
+    <button class="blue" onclick="saveNames()">Zu den Rollen</button>
+  </div>`;
+}
+function saveNames() {
+  let nm = $('nametxt').value.split('\n').map(x=>x.trim()).filter(Boolean);
+  if(nm.length<4) return alert('Mindestens 4 Namen!');
+  api('/names', {names:nm}).then(()=>renderRoles());
+}
+async function renderRoles() {
+  let data = await fetch(API+'/roles').then(r=>r.json());
+  let nms = await fetch(API+'/names').then(r=>r.json()).then(j=>j.names);
+  names = nms; roletxts = data.all_roles||{}; roleCounts = data.role_counts||{};
+  let rows = Object.keys(roletxts).map(role=>`
+    <div class="role-row">
+      <span><b>${role}</b>
+      <button class="info-btn" onclick="showInfo('${role}')">i</button></span>
+      <span class="role-btns">
+        <button onclick="chgRole('${role}',-1)" class="gr">-</button>
+        <span class="count-round" id="c_${role.replace(/ /g,'_')}">${roleCounts[role]||0}</span>
+        <button onclick="chgRole('${role}',1)" class="gr">+</button>
+      </span>
     </div>
-    <button onclick="startGame()">Mischen & Starten</button>
-  </div>
+  `).join('');
+  let sum = Object.values(roleCounts).reduce((a,b)=>a+b,0), miss = names.length - sum;
+  $('main').innerHTML = `<div class="center-box">
+    <h2>Rollen auswählen</h2>
+    <p>Wähle genau ${names.length} Rollen aus.</p>
+    <p style="color:#008CBA;">Noch zu vergeben: <span id="miss">${miss}</span></p>
+    <button class="red" onclick="renderNames()">Zurück</button>
+    <button class="green" style="display:${miss===0?'inline-block':'none'}" id="mixbtn" onclick="startMix()">Mischen</button>
+    <div style="margin:18px 0 8px 0">${rows}</div>
+    <button class="green" style="display:${miss===0?'inline-block':'none'}" id="mixbtn2" onclick="startMix()">Mischen</button>
+  </div>`;
+}
+function chgRole(role, d) {
+  let sum = Object.values(roleCounts).reduce((a,b)=>a+b,0);
+  roleCounts[role] = (roleCounts[role]||0) + d;
+  if(roleCounts[role]<0) roleCounts[role]=0;
+  if(d>0 && sum>=names.length) roleCounts[role]--;
+  $('c_'+role.replace(/ /g,'_')).textContent = roleCounts[role];
+  let miss = names.length - Object.values(roleCounts).reduce((a,b)=>a+b,0);
+  $('miss').textContent = miss;
+  api('/roles', {role_counts:roleCounts});
+  let show = miss===0?'inline-block':'none';
+  if($('mixbtn')) $('mixbtn').style.display=show;
+  if($('mixbtn2')) $('mixbtn2').style.display=show;
+}
+function showInfo(role) {
+  $('overlay').style.display = 'block';
+  $('infotitle').textContent = role;
+  $('infotext').textContent = roletxts[role]||'';
+}
+$('closeinfo').onclick = ()=>{ $('overlay').style.display='none'; };
 
-  <!-- Karten-Aufdecken -->
-  <div id="step-3" class="hidden">
-    <h2>Spielerkarten aufdecken</h2>
-    <div id="card-info"></div>
-    <button onclick="revealCard()">Karte aufdecken</button>
-    <button onclick="nextPlayer()" class="hidden" id="next-btn">Nächster Spieler</button>
-  </div>
+async function startMix() {
+  let nms = await fetch(API+'/names').then(res=>res.json()).then(j=>j.names||[]);
+  let sum = Object.values(roleCounts).reduce((a,b)=>a+b,0);
+  if(sum !== nms.length) return alert('Rollenanzahl stimmt nicht!');
+  api('/mixroles').then(j=>{ if(j.error)alert(j.error); else renderCards(); });
+}
 
-  <script>
-    const BASE = "https://werwolf-game.onrender.com";
-    let players = [];
-    let roleCounts = {};
-    let allRoles = {};
-    let currRoleIdx = 0;
+async function renderCards() {
+  let resp = await fetch(API+'/next_card').then(r=>r.json());
+  if(resp.done) { renderOverview(); return; }
+  $('main').innerHTML = `<div class="center-box">
+      <h2>Rollen aufdecken</h2>
+      <h3 id="pname">${resp.player_name}</h3>
+      <div id="roleblock"></div>
+      <button class="blue" id="revealbtn" onclick="revealCard()">Rolle aufdecken</button>
+    </div>`;
+}
+function revealCard() {
+  api('/reveal_card').then(j=>{
+    let b = `<div style="margin:14px 0 10px 0">
+      <span style="color:#f44336;font-size:1.4em"><b>${j.role_name||''}</b></span><br>
+    </div>
+    <button class="blue" onclick="showInfo('${j.role_name}')">Erklärung</button>
+    <button class="green" onclick="renderCards()" style="margin-left:16px">Nächster Spieler</button>`;
+    $('roleblock').innerHTML = b;
+    $('revealbtn').style.display = 'none';
+  });
+}
 
-    // Schritt 1 -> Schritt 2
-    function nextToRoles() {
-      const spielerRaw = document.getElementById("spieler").value.trim();
-      if (!spielerRaw) return alert("Bitte Namen eingeben!");
-      players = spielerRaw.split("\n").map(v => v.trim()).filter(Boolean);
-      if (players.length < 4) return alert("Mindestens 4 Spieler!");
+async function renderOverview() {
+  let state = await fetch(API+'/status').then(r=>r.json());
+  let nms = await fetch(API+'/names').then(r=>r.json()).then(j=>j.names);
+  let sum = Object.values(roleCounts).reduce((a,b)=>a+b,0), miss = nms.length - sum;
+  let rows = state.map(p =>
+    `<div class="player-row${p.status==='dead'?' dead':''}">
+      <span style="flex:1;cursor:pointer" onclick="killPlayer('${p.name}')">
+        <b>${p.role}</b> | ${p.name}
+      </span>
+      <button class="info-btn" onclick="showInfo('${p.role}')">i</button>
+    </div>`).join('');
+  $('main').innerHTML = `<div class="center-box">
+    <h2>Spielübersicht</h2>
+    <p>Spieler als „tot“ markieren: Klick auf Name</p>
+    <div>${rows}</div>
+    <div style="margin-top:22px;">
+      <button class="red" onclick="resetSoft()">Neustart</button>
+      <button class="green" onclick="doInit()" style="margin-left:20px;">Zur Startseite</button>
+    </div>
+  </div>`;
+}
 
-      // Lade die Rollen-Legende
-      fetch(BASE + "/api/roles/legend")
-        .then(r=>r.json()).then(data=>{
-          allRoles = data; roleCounts = {};
-          // Build Rollenliste
-          document.getElementById("roles-list").innerHTML = "";
-          Object.keys(allRoles).forEach(role => {
-            document.getElementById("roles-list").innerHTML += `
-              <div class="rolle">
-                <b>${role}</b> 
-                <button onclick="changeRole('${role}', -1)">-</button>
-                <span id="count_${role}">0</span>
-                <button onclick="changeRole('${role}', 1)">+</button> 
-                <button onclick="alert('${allRoles[role].replace(/'/g,"\\'")}')">i</button>
-              </div>`;
-            roleCounts[role] = 0;
-          });
-          updateRolesMissing();
-          document.getElementById("step-1").classList.add("hidden");
-		  document.getElementById("step-2").classList.remove("hidden");
-        });
-    }
+function killPlayer(name) {
+  if(!confirm(`Spieler "${name}" als tot markieren?`)) return;
+  api('/status', {kill:name}).then(()=>renderOverview());
+}
+function resetSoft() {
+  api('/resetsoft').then(()=>renderRoles());
+}
+function doInit() {
+  api('/init').then(()=>renderStart());
+}
 
-    function changeRole(role, delta) {
-      let curr = roleCounts[role];
-      const sum = Object.values(roleCounts).reduce((a,b)=>a+b,0);
-
-      if (delta > 0 && sum < players.length) {
-        roleCounts[role] += 1;
-      }
-      if (delta < 0 && roleCounts[role] > 0) {
-        roleCounts[role] -= 1;
-      }
-      document.getElementById('count_'+role).textContent = roleCounts[role];
-      updateRolesMissing();
-    }
-
-    function updateRolesMissing() {
-      const sum = Object.values(roleCounts).reduce((a,b)=>a+b,0);
-      document.getElementById("roles-missing").textContent = players.length - sum;
-    }
-
-    // Schritt 2 -> Spiel starten
-    function startGame() {
-      const sum = Object.values(roleCounts).reduce((a,b)=>a+b,0);
-      if (sum !== players.length) return alert("Nicht exakt so viele Rollen gewählt wie Spieler!");
-      fetch(BASE + "/api/game/roles", {
-        method: "POST",
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({role_counts: roleCounts, players: players, player_count: players.length})
-      }).then(r=>r.json()).then(data=>{
-        if(data.error) return alert(data.error);
-        document.getElementById("step-2").classList.add("hidden");
-        document.getElementById("step-3").classList.remove("hidden");
-        currRoleIdx = 0;
-        showNextPlayer();
-      });
-    }
-
-    // Karten anzeigen
-    function showNextPlayer() {
-      fetch(BASE + "/api/game/next_card")
-        .then(r=>r.json()).then(data=>{
-          if(data.message) { document.getElementById("card-info").textContent = "Fertig!"; return; }
-          document.getElementById("card-info").textContent = "Spieler: " + data.player_name;
-          document.getElementById("next-btn").classList.add("hidden");
-        });
-    }
-    function revealCard() {
-      fetch(BASE + "/api/game/reveal_and_next", {method:"POST"})
-        .then(r=>r.json()).then(data=>{
-          document.getElementById("card-info").innerHTML = `<b>${data.player_name}</b><br>
-           <span style="color:red">${data.role_name}</span><br>`+
-           `<span>${data.role_description}</span>`;
-          document.getElementById("next-btn").classList.remove("hidden");
-        });
-    }
-    function nextPlayer() { showNextPlayer(); }
-
-  </script>
-  <button onclick="location.reload()">Neues Spiel</button>
+// --- Anfang ---
+renderStart();
+</script>
 </body>
 </html>
