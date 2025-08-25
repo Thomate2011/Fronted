@@ -114,13 +114,26 @@
         let rolesCount = {};
         let totalPlayers = 0;
         let currentRoleData = null;
+        let playerNamesList = [];
 
         function showPage(pageId) {
             document.querySelectorAll('.page').forEach(page => {
                 page.classList.remove('active');
             });
+
+            // Speichere die Namen im LocalStorage
+            const savedPlayersString = localStorage.getItem('saved_players');
+            if (savedPlayersString) {
+                playerNamesList = savedPlayersString.split('\n').map(name => name.trim()).filter(name => name !== '');
+                if (playerNamesList.length > 0 && pageId === 'names') {
+                    // Wenn Namen vorhanden sind und wir zur Namen-Seite navigieren, gehe direkt zur Rollen-Seite
+                    pageId = 'roles';
+                }
+            }
+            
             document.getElementById(pageId + '-page').classList.add('active');
 
+            // Logik für jede Seite
             if (pageId === 'names') {
                 loadPlayers();
             } else if (pageId === 'roles') {
@@ -134,9 +147,7 @@
 
         // --- Startseite Logik ---
         function goToHome() {
-            // Lösche alle Daten nur bei Rückkehr zur Startseite
             localStorage.clear();
-            // Rufe den Server-Endpunkt auf, um die Session zu leeren
             fetch(`${BACKEND_URL}/api/game/restart_session`, { method: 'POST' });
             showPage('start');
         }
@@ -245,7 +256,6 @@
 
         async function saveRoles() {
             localStorage.setItem('saved_roles', JSON.stringify(rolesCount));
-            // Sende die Rollen an den Server
             await fetch(`${BACKEND_URL}/api/game/save_roles`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -390,6 +400,16 @@
         document.getElementById('show-description-btn').addEventListener('click', showDescription);
         document.getElementById('next-player-btn').addEventListener('click', loadCard);
         
+        // Initialer Seitenaufruf
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedPlayersString = localStorage.getItem('saved_players');
+            const savedRolesString = localStorage.getItem('saved_roles');
+            if (savedPlayersString || savedRolesString) {
+                showPage('roles');
+            } else {
+                showPage('start');
+            }
+        });
     </script>
 </body>
 </html>
